@@ -8,7 +8,7 @@ from .operations import OP_ACCUMULATE_GRADS, get_op_class
 
 
 @contextmanager
-def extend(model, op_names):
+def extend(model, op_names, mask=None):
     if not isinstance(op_names, (list, tuple)):
         op_names = [op_names]
     accumulate_grads = False
@@ -24,7 +24,10 @@ def extend(model, op_names):
 
         def backward_hook(out_grads):
             out_grads = _preprocess_out_grads(module, out_grads)
-            _call_operations_in_backward(module, in_data, out_grads)
+            if mask is not None:
+                _call_operations_in_backward(module, in_data[mask], out_grads[mask])
+            else:
+                _call_operations_in_backward(module, in_data, out_grads)
 
         if out_data.requires_grad:
             handles.append(out_data.register_hook(backward_hook))

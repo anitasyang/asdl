@@ -50,6 +50,7 @@ def fisher_for_cross_entropy(
     all_reduce=False,
     is_master=True,
     matrix_manager=None,
+    mask=None,
     **backward_kwargs
 ):
     if isinstance(fisher_types, str):
@@ -95,9 +96,9 @@ def fisher_for_cross_entropy(
         device = next(model.parameters()).device
         for inputs, targets in data_loader:
             inputs, targets = inputs.to(device), targets.to(device)
-            with extend(model, op_names):
+            with extend(model, op_names, mask=mask):
                 _fisher_for_cross_entropy(
-                    model, fisher_types, inputs, targets, **kwargs
+                    model, fisher_types, inputs, targets, mask=mask, **kwargs
                 )
             if stats_name is not None:
                 matrix_manager.accumulate_matrices(stats_name)
@@ -113,9 +114,9 @@ def fisher_for_cross_entropy(
     else:
         # compute fisher for a single batch
         assert inputs is not None
-        with extend(model, op_names):
+        with extend(model, op_names, mask=mask):
             _fisher_for_cross_entropy(
-                model, fisher_types, inputs, targets, **kwargs
+                model, fisher_types, inputs, targets, mask=mask, **kwargs
             )
 
     # reduce matrices
@@ -298,7 +299,8 @@ def _fisher_for_cross_entropy(
     compute_block_diag_fvp=False,
     vec=None,
     n_mc_samples=1,
-    backward_kwargs=None
+    backward_kwargs=None,
+    mask=None
 ):
     if backward_kwargs is None:
         backward_kwargs = dict(retain_graph=True)
@@ -316,6 +318,9 @@ def _fisher_for_cross_entropy(
     if logits.ndim > 2:
         # reduce augmented dimension
         logits = logits.mean(dim=1)
+    if mask is not None:
+        logits = logits[mask]
+        targets = targets[mask]
     log_probs = F.log_softmax(logits, dim=1)
     probs = None
 
