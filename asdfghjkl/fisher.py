@@ -115,7 +115,7 @@ def fisher_for_cross_entropy(
         # compute fisher for a single batch
         assert inputs is not None
         with extend(model, op_names, mask=mask):
-            _fisher_for_cross_entropy(
+            logits = _fisher_for_cross_entropy(
                 model, fisher_types, inputs, targets, mask=mask, **kwargs
             )
 
@@ -123,7 +123,7 @@ def fisher_for_cross_entropy(
     if is_distributed:
         matrix_manager.reduce_matrices(stats_name, is_master, all_reduce)
 
-    return matrix_manager
+    return logits, matrix_manager
 
 
 def zero_fisher(module, fisher_types):
@@ -349,6 +349,8 @@ def _fisher_for_cross_entropy(
     if COV in fisher_types:
         assert targets is not None, 'targets must be specified for computing covariance.'
         _covariance(loss_and_backward, model, targets, compute_param_grad)
+    
+    return logits
 
 
 def _module_batch_grads(model):
